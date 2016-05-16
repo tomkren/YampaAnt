@@ -19,9 +19,9 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 
 -----------------------------
 
+type Port = Int
 
-
-runXmlRpcServer :: Int -> [(String, XmlRpcMethod)] -> IO ()
+runXmlRpcServer :: Port -> [(String, XmlRpcMethod)] -> IO ()
 runXmlRpcServer port meths = do
   putStrLn $ "xml-rpc server at http://localhost:" ++ (show port) ++"/"
   putStr   $ "avalible methods:\n" ++ (concatMap (\(m,_)->"  "++m++"\n") meths)
@@ -47,12 +47,6 @@ add x y = return (x + y)
 
 times :: Int -> Int -> IO Int
 times x y = return (x * y)
-
-
-
-
-
-
 
 
 
