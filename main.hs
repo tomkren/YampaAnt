@@ -7,15 +7,92 @@ import Control.Monad.STM (atomically)
 import Control.Concurrent.STM.TVar (TVar,newTVar,modifyTVar,swapTVar,readTVarIO,readTVar,writeTVar)
 
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import Data.Set (Set)
+import Data.Map (Map)
 import Data.List (maximumBy)
+import Data.Maybe
 
-
-import XmlRpcServer
 import Network.XmlRpc.Server (fun)
+
+-- TODO : asi předělat na Data.Aeson 
 import Text.JSON
 import Text.JSON.String
 
+
+
+import XmlRpcServer
+import WebServer
+
+--- nové : WebServer pro dálkový puštění --------------------------------------------------------------
+
+runAntServer :: IO ()
+runAntServer = do
+  putStrLn "Starting AntServer ..."
+  runWebServer 8080 antServerFun
+
+antServerFun :: String -> String
+antServerFun cmd = case cmd of
+  "santaFe" -> encode santaFe
+  cmd -> "Neumim cmd: "++ cmd 
+
+
+
+
+antWorldToJsonString :: AntWorld -> String
+antWorldToJsonString = encode
+
+antWorldToJson :: AntWorld -> JSValue
+antWorldToJson w = makeObj [
+    ("worldSize",      showJSON $ worldSize w),
+    ("foodSet",        showJSON $ foodSet w),
+    ("limitSteps",     showJSON $ limitSteps w),
+    ("remainingSteps", showJSON $ remainingSteps w),
+    ("numFoodEaten",   showJSON $ numFoodEaten w),
+    ("antMode",        showJSON $ antMode w),
+    ("antPos",         showJSON $ antPos w),
+    ("antDir",         showJSON $ antDir w),
+    ("pathSet",        showJSON $ pathSet w),
+    ("frameModulo",    showJSON $ frameModulo w)
+  ]
+
+
+jsonToAntWorld :: JSValue -> Result AntWorld
+jsonToAntWorld = undefined
+
+foodSetToJson :: Poses -> JSValue
+foodSetToJson = showJSON
+
+instance JSON AntWorld where
+  showJSON = antWorldToJson
+  readJSON = jsonToAntWorld
+
+mkShowJsonByShow :: Show a => a -> JSValue
+mkShowJsonByShow = showJSON . show
+
+mkReadJsonByRead :: Read a => JSValue -> Result a
+mkReadJsonByRead jsVal = case strResult of
+  Ok str -> case maybeRead str of
+    Just x  -> Ok x
+    Nothing -> Error "mkReadJsonByRead: Unable to read."
+  Error msg -> Error $ "mkReadJsonByRead: " ++ msg 
+ where
+  strResult :: Result String
+  strResult = readJSON jsVal
+
+
+instance JSON AntMode where
+  showJSON = mkShowJsonByShow
+  readJSON = mkReadJsonByRead
+
+instance JSON Dir where
+  showJSON = mkShowJsonByShow
+  readJSON = mkReadJsonByRead
+
+
+
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads
 
 ------------------------------------------------------------------------------------------------------
 
@@ -243,8 +320,8 @@ type Size  = (Int,Int) -- (w,h)
 type Pos   = (Int,Int) -- (x,y)
 type Poses = Set Pos
 
-data Dir     = DUp | DDown | DLeft | DRight deriving (Show,Eq)
-data AntMode = EatMode | BuildMode deriving (Show,Eq)
+data Dir     = DUp | DDown | DLeft | DRight deriving (Show,Read,Eq)
+data AntMode = EatMode | BuildMode deriving (Show,Read,Eq)
 
 
 mkEmptyWorld :: AntMode -> Int -> Int -> Maybe Size -> AntWorld
