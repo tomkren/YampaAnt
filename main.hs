@@ -33,7 +33,8 @@ runAntServer = do
 
 antServerFun :: String -> String
 antServerFun cmd = case cmd of
-  "santaFe" -> encode santaFe
+  "santaFe"    -> encode santaFe
+  "antProgram" -> "{\"antProgram\":"++ wStr ++"}"
   cmd -> "Neumim cmd: "++ cmd 
 
 
