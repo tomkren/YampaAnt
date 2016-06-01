@@ -106,7 +106,7 @@ winner :: AntProg
 winner = antRepeat $ ifa m (pr3 l (pr2 (ifa m r) (pr2 r (pr2 l r))) (pr2 (ifa m l) m))
 
 santaFe :: AntWorld
-santaFe = mkAntWorld EatMode 600 (-1) --(-3)
+santaFe = mkAntWorld EatMode 600 (-3) --(-1) --(-3)
 
              [" . F F F . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
              ," . . . F . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
@@ -338,6 +338,8 @@ mkEmptyWorld initAntMode limit frameMod size = AntWorld {
    pathSet = Set.empty,
    frameModulo = frameMod
 }
+
+-- todo : neni size obrácenì ???
 
 mkAntWorld :: AntMode -> Int -> Int -> [[Char]] -> AntWorld
 mkAntWorld initAntMode limit frameMod wStrs' = 
@@ -776,7 +778,7 @@ testAntProg antProg = runSF antStep initAntWorld antProg
 
 
 runServer :: IO ()
-runServer = runXmlRpcServer 8080 [
+runServer = runXmlRpcServer 4242 [
   ("evalAnt" ,     fun $ evalAntJsonStr   santaFe),
   ("evalAnts",     fun $ evalAntsJsonStr  santaFe),
   ("evalAnts'",    fun $ evalAntsJsonStr' santaFe),
