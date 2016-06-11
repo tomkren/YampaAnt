@@ -40,7 +40,12 @@ xmlRpcApp ms request respond = do
 -- Example --------------------------------------------
 
 runExample :: IO ()
-runExample = runXmlRpcServer 8080 [("add", fun add),("times", fun times)]
+runExample = runXmlRpcServer 8080 [
+  ("add", fun add),
+  ("times", fun times),
+  ("len", fun len),
+  ("twiceRev",fun twiceRev)
+ ]
 
 add :: Int -> Int -> IO Int
 add x y = return (x + y)
@@ -48,7 +53,11 @@ add x y = return (x + y)
 times :: Int -> Int -> IO Int
 times x y = return (x * y)
 
+len :: String -> IO Int
+len str = return $ length str 
 
+twiceRev :: String -> IO (String,String)
+twiceRev str = return (str, reverse str)
 
 
 {-

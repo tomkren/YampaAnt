@@ -279,6 +279,7 @@ evalAnts = genericEvalAnts evalAnt
 
 
 genericEvalAnts :: (AntWorld -> AntTree -> IO (Score,AntWorld)) -> (AntWorld -> [AntTree] -> IO [Score])
+genericEvalAnts _ _ [] = return []
 genericEvalAnts antEvaluator w trees = do
   scores <- (mapM . auxFst . antEvaluator) w trees
   let (iBest,bestScore) = maximumBy (\(_,x)(_,y)->compare x y) $ zip [0..] scores
@@ -785,7 +786,11 @@ runServer = runXmlRpcServer 4242 [
   ("perfectScore", fun $ getPerfectScore  santaFe),
   -- experimental follows:
   ("evalBuildAnts",  fun $ evalBuildAntsJsonStr emptyWorld_b),
-  ("evalBuildAntsByEatAnt", fun $ evalBuildAntsByEatAnt_jsonStr kozaEater emptyWorld_b)]
+  ("evalBuildAntsByEatAnt", fun $ evalBuildAntsByEatAnt_jsonStr kozaEater emptyWorld_b),
+  -- iterativeEvolution experimental follows
+  ("evalAnts_2",   fun $ evalAntsJsonStr_withIds  santaFe),
+  ("getEvalPoolSize", fun $ getEvalPoolSize)
+ ]
 
 
 getPerfectScore :: AntWorld -> String -> IO Score
@@ -796,6 +801,14 @@ evalAntJsonStr w = return . fst <=< evalAnt w . jsonStr2antTree
  
 evalAntsJsonStr :: AntWorld -> String -> IO [Score]
 evalAntsJsonStr w = evalAnts w . jsonStr2antTrees
+
+
+evalAntsJsonStr_withIds :: AntWorld -> String -> IO [(Int,Score)]
+evalAntsJsonStr_withIds w str = do
+  let (ids,trees) = unzip $ jsonStr2antTreesWithIds str
+  scores <- evalAnts w trees
+  return $ zip ids scores
+
 
 evalBuildAntsJsonStr :: AntWorld -> String -> IO [Score]
 evalBuildAntsJsonStr w = evalBuildAnts w . jsonStr2antTrees
@@ -809,6 +822,9 @@ evalAntsJsonStr' w = evalAnts' w . jsonStr2antTrees
 
 
 
+getEvalPoolSize :: Int -> IO Int
+getEvalPoolSize suggestedPoolSize = return suggestedPoolSize
+
 -- json stuff ---------------------
 
 testJsonWinTree = (runAnt santaFe) . fromAntTree . jsonStr2antTree $ wStr
@@ -817,6 +833,13 @@ testJsonWinTree = (runAnt santaFe) . fromAntTree . jsonStr2antTree $ wStr
 
 
 wStr = "[\"ifa\", \"m\", [\"pr3\", \"l\", [\"pr2\", [\"ifa\", \"m\", \"r\"], [\"pr2\", \"r\", [\"pr2\", \"l\", \"r\"]]], [\"pr2\", [\"ifa\", \"m\", \"l\"], \"m\"]]]"
+
+
+
+jsonStr2antTreesWithIds :: String -> [(Int,AntTree)]
+jsonStr2antTreesWithIds str = case readJSArr str of
+  Left  err   -> error err
+  Right jsVal -> json2antTreesWithIds jsVal
 
 jsonStr2antTrees :: String -> [AntTree]
 jsonStr2antTrees str = case readJSArr str of
@@ -827,6 +850,7 @@ jsonStr2antTree :: String -> AntTree
 jsonStr2antTree str = case readJSArr str of
   Left  err   -> error err
   Right jsVal -> json2antTree jsVal 
+
 
 
 --parseJSArrStr :: (JSValue -> a) -> 
@@ -854,6 +878,30 @@ json2antTree jsVal = case jsVal of
   _ -> error "Unsupported JSON form.."
 
 
+json2antTreesWithIds :: JSValue -> [(Int,AntTree)]
+json2antTreesWithIds jsVal = case jsVal of
+  JSArray xs -> map json2antTreeWithId xs
+
+
+json2antTreeWithId :: JSValue -> (Int,AntTree)
+json2antTreeWithId jsVal = case jsVal of
+  JSObject jsobj -> case jsobj2TreeWithId (fromJSObject jsobj) of
+                      Just x -> x
+                      Nothing -> error "json2antTreeWithId: some key was missing in JSON.."
+  _ -> error "json2antTreeWithId: Unsupported JSON form.."
+
+jsobj2TreeWithId :: [(String,JSValue)] -> Maybe (Int, AntTree)
+jsobj2TreeWithId xs = do
+  jsvalId   <- lookup "id" xs
+  indivId   <- readJSValInt jsvalId
+  indivCode <- lookup "code" xs
+  return (indivId, json2antTree indivCode)
+
+
+readJSValInt :: JSValue -> Maybe Int
+readJSValInt jsval = case readJSON jsval of
+  Ok x -> Just x
+  Error _ -> Nothing
 
 
 
