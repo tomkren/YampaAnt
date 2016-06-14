@@ -24,6 +24,9 @@ import Text.JSON.String
 import XmlRpcServer
 import WebServer
 
+-- pro fake fitness
+import System.Random 
+
 --- nové : WebServer pro dálkový puštění --------------------------------------------------------------
 
 runAntServer :: IO ()
@@ -208,6 +211,8 @@ antOutputFun tvWorld _ (t, antCmdEvent) = do
 
 
 ---------------------------------------------------------------------------------------------------
+
+type DScore = Double
 
 type Score = Int
 data AntTree = L | R | M | D | IFA AntTree AntTree | P2 AntTree AntTree | P3 AntTree AntTree AntTree deriving (Eq,Show)
@@ -789,8 +794,11 @@ runServer = runXmlRpcServer 4242 [
   ("evalBuildAntsByEatAnt", fun $ evalBuildAntsByEatAnt_jsonStr kozaEater emptyWorld_b),
   -- iterativeEvolution experimental follows
   ("evalAnts_2",   fun $ evalAntsJsonStr_withIds  santaFe),
-  ("getEvalPoolSize", fun $ getEvalPoolSize)
+  ("getEvalPoolSize", fun getEvalPoolSize),
+  ("fakeIterativeEval", fun fakeIterativeEval)
  ]
+
+
 
 
 getPerfectScore :: AntWorld -> String -> IO Score
@@ -803,11 +811,14 @@ evalAntsJsonStr :: AntWorld -> String -> IO [Score]
 evalAntsJsonStr w = evalAnts w . jsonStr2antTrees
 
 
-evalAntsJsonStr_withIds :: AntWorld -> String -> IO [(Int,Score)]
+
+
+
+evalAntsJsonStr_withIds :: AntWorld -> String -> IO [(Int,DScore)]
 evalAntsJsonStr_withIds w str = do
   let (ids,trees) = unzip $ jsonStr2antTreesWithIds str
   scores <- evalAnts w trees
-  return $ zip ids scores
+  return $ zip ids (map fromIntegral scores)
 
 
 evalBuildAntsJsonStr :: AntWorld -> String -> IO [Score]
@@ -825,6 +836,41 @@ evalAntsJsonStr' w = evalAnts' w . jsonStr2antTrees
 getEvalPoolSize :: Int -> IO Int
 getEvalPoolSize suggestedPoolSize = return suggestedPoolSize
 
+
+-- fake eval stuff ---------------------
+
+fakeIterativeEval :: String -> IO [(Int,DScore)]
+fakeIterativeEval str = do
+  let ids = jsonStr2ids str
+  rand <- newStdGen
+  let scores = take (length ids) $ randoms rand
+  return $ zip ids scores
+
+jsonStr2ids :: String -> [Int]
+jsonStr2ids str = case readJSArr str of
+  Left  err   -> error err
+  Right jsVal -> json2ids jsVal
+
+json2ids :: JSValue -> [Int]
+json2ids jsVal = case jsVal of
+  JSArray xs -> map json2id xs
+
+json2id :: JSValue -> Int
+json2id jsVal = case jsVal of
+  JSObject jsobj -> case jsobj2id (fromJSObject jsobj) of
+                      Just x -> x
+                      Nothing -> error "json2id error (1) : correct id missing"
+  _ -> error "json2id error (2) : indiv must be represented by JsonObject"
+
+jsobj2id :: [(String,JSValue)] -> Maybe Int
+jsobj2id xs = do
+  jsvalId   <- lookup "id" xs
+  indivId   <- readJSValInt jsvalId
+  return indivId
+
+
+
+
 -- json stuff ---------------------
 
 testJsonWinTree = (runAnt santaFe) . fromAntTree . jsonStr2antTree $ wStr
@@ -833,6 +879,8 @@ testJsonWinTree = (runAnt santaFe) . fromAntTree . jsonStr2antTree $ wStr
 
 
 wStr = "[\"ifa\", \"m\", [\"pr3\", \"l\", [\"pr2\", [\"ifa\", \"m\", \"r\"], [\"pr2\", \"r\", [\"pr2\", \"l\", \"r\"]]], [\"pr2\", [\"ifa\", \"m\", \"l\"], \"m\"]]]"
+
+
 
 
 
@@ -876,6 +924,10 @@ json2antTree jsVal = case jsVal of
     "pr2" -> P2  (json2antTree $ xs!!0) (json2antTree $ xs!!1)
     "pr3" -> P3  (json2antTree $ xs!!0) (json2antTree $ xs!!1) (json2antTree $ xs!!2)
   _ -> error "Unsupported JSON form.."
+
+
+
+
 
 
 json2antTreesWithIds :: JSValue -> [(Int,AntTree)]
